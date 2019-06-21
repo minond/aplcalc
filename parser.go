@@ -12,7 +12,6 @@ type tok uint8
 
 const (
 	tokEOF tok = iota
-	tokInvalid
 	tokNum
 	tokWord
 )
@@ -34,8 +33,6 @@ func (t token) String() string {
 	switch t.tok {
 	case tokEOF:
 		return "(eof)"
-	case tokInvalid:
-		return fmt.Sprintf("(invalid `%s`)", t.lexeme)
 	case tokNum:
 		return fmt.Sprintf("(num `%s`)", t.lexeme)
 	case tokWord:
@@ -71,25 +68,22 @@ func tokenize(input string) []token {
 	for pos := 0; pos < max; {
 		curr = runes[pos]
 		switch {
+		case unicode.IsSpace(curr):
+			pos++
 		case curr == '(':
 			tokens = append(tokens, tokenOpenParen)
 			pos++
 		case curr == ')':
 			tokens = append(tokens, tokenCloseParen)
 			pos++
-		case unicode.IsSpace(curr):
-			pos++
 		case unicode.IsNumber(curr):
 			num, size := eat(runes, pos, max, validchar)
 			pos += size
 			tokens = append(tokens, token{tok: tokNum, lexeme: string(num)})
-		case !unicode.IsSpace(curr):
+		default:
 			word, size := eat(runes, pos, max, validchar)
 			pos += size
 			tokens = append(tokens, token{tok: tokWord, lexeme: string(word)})
-		default:
-			pos++
-			tokens = append(tokens, token{tok: tokInvalid, lexeme: string(curr)})
 		}
 	}
 
