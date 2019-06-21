@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"unicode"
 )
 
@@ -56,42 +57,34 @@ var (
 	tokenMult       = token{tok: tokWord, lexeme: "*"}
 	tokenOpenParen  = token{tok: tokWord, lexeme: "("}
 	tokenPlus       = token{tok: tokWord, lexeme: "+"}
-
-	tokenMap = map[rune]token{
-		'%': tokenMod,
-		'(': tokenOpenParen,
-		')': tokenCloseParen,
-		'*': tokenMult,
-		'+': tokenPlus,
-		'-': tokenMinus,
-		'/': tokenDiv,
-		'=': tokenEq,
-		'^': tokenExp,
-	}
 )
 
 func tokenize(input string) []token {
 	runes := []rune(input)
 	max := len(runes)
+
 	var curr rune
 	var tokens []token
 
+	validchar := and(not(unicode.IsSpace), not(is(')')))
+
 	for pos := 0; pos < max; {
 		curr = runes[pos]
-		if token, known := tokenMap[curr]; known {
-			tokens = append(tokens, token)
-			pos++
-			continue
-		}
 		switch {
+		case curr == '(':
+			tokens = append(tokens, tokenOpenParen)
+			pos++
+		case curr == ')':
+			tokens = append(tokens, tokenCloseParen)
+			pos++
 		case unicode.IsSpace(curr):
 			pos++
 		case unicode.IsNumber(curr):
-			num, size := eat(runes, pos, max, unicode.IsNumber)
+			num, size := eat(runes, pos, max, validchar)
 			pos += size
 			tokens = append(tokens, token{tok: tokNum, lexeme: string(num)})
-		case unicode.IsLetter(curr):
-			word, size := eat(runes, pos, max, not(unicode.IsSpace))
+		case !unicode.IsSpace(curr):
+			word, size := eat(runes, pos, max, validchar)
 			pos += size
 			tokens = append(tokens, token{tok: tokWord, lexeme: string(word)})
 		default:
@@ -105,9 +98,26 @@ func tokenize(input string) []token {
 
 type runePred func(rune) bool
 
+func is(r1 rune) runePred {
+	return func(r2 rune) bool {
+		return r1 == r2
+	}
+}
+
 func not(fn runePred) runePred {
 	return func(r rune) bool {
 		return !fn(r)
+	}
+}
+
+func and(fns ...runePred) runePred {
+	return func(r rune) bool {
+		for _, fn := range fns {
+			if !fn(r) {
+				return false
+			}
+		}
+		return true
 	}
 }
 
@@ -158,15 +168,20 @@ func eat(runes []rune, pos, max int, pred runePred) ([]rune, int) {
 type statement interface{}
 
 type expression interface {
-	fmt.Stringer
+	Stringify(indent int) string
 }
 
 type group struct {
 	sub expression
 }
 
-func (g group) String() string {
-	return fmt.Sprintf("(group %s)", g.sub)
+func (g group) Stringify(indent int) string {
+	if g.sub == nil {
+		return "(group empty)"
+	}
+	return fmt.Sprintf("(group\n%s%s)",
+		strings.Repeat(" ", indent+2),
+		g.sub.Stringify(indent+2))
 }
 
 type infix struct {
@@ -175,8 +190,13 @@ type infix struct {
 	rhs expression
 }
 
-func (b infix) String() string {
-	return fmt.Sprintf("(infix-app %s %s %s)", b.op, b.lhs, b.rhs)
+func (b infix) Stringify(indent int) string {
+	return fmt.Sprintf("(infix-app %s\n%s%s\n%s%s)",
+		b.op,
+		strings.Repeat(" ", indent+2),
+		b.lhs.Stringify(indent+2),
+		strings.Repeat(" ", indent+2),
+		b.rhs.Stringify(indent+2))
 }
 
 type prefix struct {
@@ -184,15 +204,18 @@ type prefix struct {
 	subject expression
 }
 
-func (p prefix) String() string {
-	return fmt.Sprintf("(prefix-app %s %s)", p.op, p.subject)
+func (p prefix) Stringify(indent int) string {
+	return fmt.Sprintf("(prefix-app %s\n%s%s)",
+		p.op,
+		strings.Repeat(" ", indent+2),
+		p.subject.Stringify(indent+2))
 }
 
 type number struct {
 	value *big.Float
 }
 
-func (n number) String() string {
+func (n number) Stringify(indent int) string {
 	return fmt.Sprintf("(number %s)", n.value.String())
 }
 
@@ -200,7 +223,7 @@ type identifier struct {
 	value string
 }
 
-func (i identifier) String() string {
+func (i identifier) Stringify(indent int) string {
 	return fmt.Sprintf("(identifier %s)", i.value)
 }
 
@@ -247,10 +270,14 @@ func (p *parser) parse() (expression, error) {
 
 func (p *parser) parseUnit() (expression, error) {
 	next := p.peek()
-	if next.eqv(tokenOpenParen) {
+	if next.eqv(tokenCloseParen) {
+		return nil, nil
+	} else if next.eqv(tokenOpenParen) {
 		return p.parseGroup()
 	} else if next.is(tokNum) {
 		return p.parseNumber()
+	} else if !p.lookahead(2).eqv(tokenEOF) {
+		return p.parseIdentifier()
 	}
 	return p.parsePrefix()
 }
@@ -285,6 +312,11 @@ func (p *parser) parseNumber() (expression, error) {
 		return nil, fmt.Errorf("unable to parse number: %v", err)
 	}
 	return &number{value: value}, nil
+}
+
+func (p *parser) parseIdentifier() (expression, error) {
+	id := p.eat()
+	return &identifier{id.lexeme}, nil
 }
 
 func (p *parser) parsePrefix() (expression, error) {
