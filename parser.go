@@ -257,8 +257,15 @@ func (p *parser) parseUnit() (expression, error) {
 		return p.parseGroup()
 	} else if next.is(tokNum) {
 		return p.parseNumber()
+	} else if !p.lookahead(2).eqv(tokenEOF) {
+		return p.parseIdentifier()
 	}
 	return p.parsePrefix()
+}
+
+func (p *parser) parseIdentifier() (expression, error) {
+	id := p.eat()
+	return &identifierExpr{id.lexeme}, nil
 }
 
 func (p *parser) parseGroup() (expression, error) {
