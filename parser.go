@@ -115,17 +115,6 @@ func and(fns ...runePred) runePred {
 	}
 }
 
-func or(fns ...runePred) runePred {
-	return func(r rune) bool {
-		for _, fn := range fns {
-			if fn(r) {
-				return true
-			}
-		}
-		return false
-	}
-}
-
 func eat(runes []rune, pos, max int, pred runePred) ([]rune, int) {
 	buff := []rune{}
 	for ; pos < max; pos++ {
