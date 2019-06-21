@@ -37,7 +37,7 @@ loop:
 				r.write("error: %v\n\n", err)
 			} else {
 				env.set("_", val)
-				r.write("%s\n\n", val.Stringify())
+				r.write("= %s\n\n", val.Stringify())
 			}
 		}
 	}

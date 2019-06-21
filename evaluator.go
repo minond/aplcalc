@@ -32,8 +32,53 @@ func newEnvironment() *environment {
 	}
 }
 
+type ty interface {
+	fmt.Stringer
+	Eq(ty) bool
+}
+
+type tyNumberS struct{}
+
+func (tyNumberS) String() string {
+	return "number"
+}
+
+func (tyNumberS) Eq(ty ty) bool {
+	return ty == tyNumber
+}
+
+type tyFunctionS struct{}
+
+func (tyFunctionS) String() string {
+	return "function"
+}
+
+func (tyFunctionS) Eq(ty ty) bool {
+	return ty == tyFunction
+}
+
+var (
+	tyNumber   = tyNumberS{}
+	tyFunction = tyFunctionS{}
+)
+
+func validTypes(expected []ty, args ...value) error {
+	if len(expected) != len(args) {
+		return fmt.Errorf("expected %d arguments but got %d",
+			len(expected), len(args))
+	}
+	for i, t := range expected {
+		if !t.Eq(args[i].Type()) {
+			return fmt.Errorf("expected %s in position %d but got a %s instead",
+				t, i, args[i].Type())
+		}
+	}
+	return nil
+}
+
 type value interface {
 	Stringify() string
+	Type() ty
 }
 
 type numberValue struct {
@@ -44,18 +89,26 @@ func (n *numberValue) Stringify() string {
 	return n.value.String()
 }
 
+func (n *numberValue) Type() ty {
+	return tyNumber
+}
+
 type builtinFuncValue struct {
-	args  int
+	args  []ty
 	apply func(env *environment, vals ...value) (value, error)
 }
 
 func (b *builtinFuncValue) Stringify() string {
-	return fmt.Sprintf("builtin/%d", b.args)
+	return fmt.Sprintf("builtin/%d", len(b.args))
+}
+
+func (b *builtinFuncValue) Type() ty {
+	return tyFunction
 }
 
 var (
 	builtinAdd = &builtinFuncValue{
-		args: 2,
+		args: []ty{tyNumber, tyNumber},
 		apply: func(env *environment, vals ...value) (value, error) {
 			lhs := vals[0].(*numberValue)
 			rhs := vals[1].(*numberValue)
@@ -64,7 +117,7 @@ var (
 		},
 	}
 	builtinMul = &builtinFuncValue{
-		args: 2,
+		args: []ty{tyNumber, tyNumber},
 		apply: func(env *environment, vals ...value) (value, error) {
 			lhs := vals[0].(*numberValue)
 			rhs := vals[1].(*numberValue)
@@ -114,6 +167,10 @@ func eval(env *environment, expr expression) (value, error) {
 		}
 		rhs, err := eval(env, e.rhs)
 		if err != nil {
+			return nil, err
+		}
+
+		if err := validTypes(fn.args, lhs, rhs); err != nil {
 			return nil, err
 		}
 
