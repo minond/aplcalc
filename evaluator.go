@@ -26,8 +26,10 @@ func (env *environment) set(id string, val value) {
 func newEnvironment() *environment {
 	return &environment{
 		values: map[string]value{
-			"+": builtinAdd,
-			"*": builtinMul,
+			"*":   builtinMul,
+			"+":   builtinAdd,
+			"abs": builtinAbs,
+			"neg": builtinNeg,
 		},
 	}
 }
@@ -86,7 +88,7 @@ type numberValue struct {
 }
 
 func (n *numberValue) Stringify() string {
-	return n.value.String()
+	return n.value.Text('g', -1)
 }
 
 func (n *numberValue) Type() ty {
@@ -116,12 +118,31 @@ var (
 			return &numberValue{value: res}, nil
 		},
 	}
+
 	builtinMul = &builtinFuncValue{
 		args: []ty{tyNumber, tyNumber},
 		apply: func(env *environment, vals ...value) (value, error) {
 			lhs := vals[0].(*numberValue)
 			rhs := vals[1].(*numberValue)
 			res := big.NewFloat(0).Mul(lhs.value, rhs.value)
+			return &numberValue{value: res}, nil
+		},
+	}
+
+	builtinNeg = &builtinFuncValue{
+		args: []ty{tyNumber},
+		apply: func(env *environment, vals ...value) (value, error) {
+			sub := vals[0].(*numberValue)
+			res := big.NewFloat(0).Neg(sub.value)
+			return &numberValue{value: res}, nil
+		},
+	}
+
+	builtinAbs = &builtinFuncValue{
+		args: []ty{tyNumber},
+		apply: func(env *environment, vals ...value) (value, error) {
+			sub := vals[0].(*numberValue)
+			res := big.NewFloat(0).Abs(sub.value)
 			return &numberValue{value: res}, nil
 		},
 	}
@@ -136,6 +157,29 @@ func eval(env *environment, expr expression) (value, error) {
 			return nil, fmt.Errorf("%s is not defined", e.value)
 		}
 		return env.get(e.value), nil
+	case *groupExpr:
+		return eval(env, e.sub)
+
+	case *prefixExpr:
+		if !env.has(e.op) {
+			return nil, fmt.Errorf("%s is not defined", e.op)
+		}
+		fn, valid := env.get(e.op).(*builtinFuncValue)
+		if !valid {
+			return nil, fmt.Errorf("%s is not a function", e.op)
+		}
+
+		sub, err := eval(env, e.subject)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := validTypes(fn.args, sub); err != nil {
+			return nil, err
+		}
+
+		return fn.apply(env, sub)
+
 	case *infixExpr:
 		if e.op == "=" {
 			var key string
