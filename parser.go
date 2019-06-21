@@ -270,8 +270,6 @@ func (p *parser) parseUnit() (expression, error) {
 		return p.parseGroup()
 	} else if next.is(tokNum) {
 		return p.parseNumber()
-	} else if !p.lookahead(2).eqv(tokenEOF) {
-		return p.parseIdentifier()
 	}
 	return p.parsePrefix()
 }
@@ -306,11 +304,6 @@ func (p *parser) parseNumber() (expression, error) {
 		return nil, fmt.Errorf("unable to parse number: %v", err)
 	}
 	return &number{value: value}, nil
-}
-
-func (p *parser) parseIdentifier() (expression, error) {
-	id := p.eat()
-	return &identifier{id.lexeme}, nil
 }
 
 func (p *parser) parsePrefix() (expression, error) {
