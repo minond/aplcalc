@@ -1,3 +1,22 @@
+// Parses the following grammar:
+//
+// expr = prefix
+//      | infix
+//      | unit
+//      ;
+//
+// unit = group
+//      | num
+//      | id
+//      ;
+//
+// group = "(" expr ")"
+//       ;
+//
+// id = ?? valid identifier characters ??
+//
+// num = ?? valid number characters ??
+
 package main
 
 import (
@@ -126,28 +145,6 @@ func eat(runes []rune, pos, max int, pred runePred) ([]rune, int) {
 	return buff, len(buff)
 }
 
-// entry = statement ( ";" statement ) *
-//       ;
-//
-// statement = assignment
-//           | expression
-//           ;
-//
-// assignment = identifier "=" expression
-//            ;
-//
-// expression = "(" expression ")"
-//            | operator expression
-//            | expression operator expression
-//            | value
-//
-// value = identifier
-//       | number
-//       ;
-//
-// identifier = ?? valid identifier characters ??
-//
-// number = ?? valid number characters ??
 type expression interface {
 	Stringify(indent int) string
 }
@@ -246,29 +243,63 @@ func (p *parser) parse() (expression, error) {
 	if p.done() {
 		return nil, errors.New("unexpected eof")
 	}
-	return p.parseInfix()
+	return p.expr()
 }
 
-func (p *parser) parseUnit() (expression, error) {
+// expr = prefix
+//      | infix
+//      | unit
+//      ;
+func (p *parser) expr() (expression, error) {
+	next := p.peek()
+	// XXX if is unary
+	if next.lexeme == "abs" {
+		op := p.eat()
+		sub, err := p.parse()
+		if err != nil {
+			return nil, err
+		}
+		return &prefixExpr{op: op.lexeme, subject: sub}, nil
+	}
+
+	expr, err := p.unit()
+	if err != nil {
+		return nil, err
+	}
+
+	// XXX if is binary
+	if p.peek().lexeme == "+" {
+		op := p.eat()
+		rhs, err := p.parse()
+		if err != nil {
+			return nil, err
+		}
+		expr = &infixExpr{op: op.lexeme, lhs: expr, rhs: rhs}
+		return expr, nil
+	}
+
+	return expr, err
+}
+
+// unit = group
+//      | num
+//      | id
+//      ;
+func (p *parser) unit() (expression, error) {
 	next := p.peek()
 	if next.eqv(tokenCloseParen) {
 		return nil, nil
 	} else if next.eqv(tokenOpenParen) {
-		return p.parseGroup()
+		return p.group()
 	} else if next.is(tokNum) {
-		return p.parseNumber()
-	} else if !p.lookahead(2).eqv(tokenEOF) {
-		return p.parseIdentifier()
+		return p.num()
 	}
-	return p.parsePrefix()
+	return p.id()
 }
 
-func (p *parser) parseIdentifier() (expression, error) {
-	id := p.eat()
-	return &identifierExpr{id.lexeme}, nil
-}
-
-func (p *parser) parseGroup() (expression, error) {
+// group = "(" expr ")"
+//       ;
+func (p *parser) group() (expression, error) {
 	next := p.eat()
 	if !next.eqv(tokenOpenParen) {
 		return nil, fmt.Errorf("expecting an open paren but got %s instead", next)
@@ -287,7 +318,12 @@ func (p *parser) parseGroup() (expression, error) {
 	return &groupExpr{sub: sub}, nil
 }
 
-func (p *parser) parseNumber() (expression, error) {
+func (p *parser) id() (expression, error) {
+	id := p.eat()
+	return &identifierExpr{id.lexeme}, nil
+}
+
+func (p *parser) num() (expression, error) {
 	next := p.eat()
 	if !next.is(tokNum) {
 		return nil, fmt.Errorf("expecting a number but got %s instead", next)
@@ -298,32 +334,4 @@ func (p *parser) parseNumber() (expression, error) {
 		return nil, fmt.Errorf("unable to parse number: %v", err)
 	}
 	return &numberExpr{value: value}, nil
-}
-
-func (p *parser) parsePrefix() (expression, error) {
-	id := p.eat()
-	if p.done() {
-		return &identifierExpr{id.lexeme}, nil
-	}
-	subject, err := p.parse()
-	if err != nil {
-		return nil, err
-	}
-	return &prefixExpr{op: id.lexeme, subject: subject}, nil
-}
-
-func (p *parser) parseInfix() (expression, error) {
-	expr, err := p.parseUnit()
-	if err != nil {
-		return nil, err
-	}
-	if !p.done() && !p.peek().eqv(tokenCloseParen) {
-		op := p.eat()
-		rhs, err := p.parse()
-		if err != nil {
-			return nil, err
-		}
-		expr = &infixExpr{op: op.lexeme, lhs: expr, rhs: rhs}
-	}
-	return expr, err
 }
