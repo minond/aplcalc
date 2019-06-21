@@ -14,9 +14,9 @@ func TestParse(t *testing.T) {
 		{"long identifier", "jfkdlsa$%%@$@#", "(identifier jfkdlsa$%%@$@#)"},
 		{"empty group", "()", "(group empty)"},
 		{"nested empty group", "((()))", "(group\n  (group\n    (group empty)))"},
-		{"prefix expression", "abs 1", "(prefix-app (word `abs`)\n  (number 1))"},
-		{"infix expression", "1 + 2", "(infix-app (word `+`)\n  (number 1)\n  (number 2))"},
-		{"multiple infix expressions", "1 + 2 + 3 + 4 + 5", "(infix-app (word `+`)\n  (number 1)\n  (infix-app (word `+`)\n    (number 2)\n    (infix-app (word `+`)\n      (number 3)\n      (infix-app (word `+`)\n        (number 4)\n        (number 5)))))"},
+		{"prefix expression", "abs 1", "(prefix-app abs\n  (number 1))"},
+		{"infix expression", "1 + 2", "(infix-app +\n  (number 1)\n  (number 2))"},
+		{"multiple infix expressions", "1 + 2 + 3 + 4 + 5", "(infix-app +\n  (number 1)\n  (infix-app +\n    (number 2)\n    (infix-app +\n      (number 3)\n      (infix-app +\n        (number 4)\n        (number 5)))))"},
 	}
 
 	for _, test := range tests {

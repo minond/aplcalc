@@ -148,17 +148,15 @@ func eat(runes []rune, pos, max int, pred runePred) ([]rune, int) {
 // identifier = ?? valid identifier characters ??
 //
 // number = ?? valid number characters ??
-type statement interface{}
-
 type expression interface {
 	Stringify(indent int) string
 }
 
-type group struct {
+type groupExpr struct {
 	sub expression
 }
 
-func (g group) Stringify(indent int) string {
+func (g groupExpr) Stringify(indent int) string {
 	if g.sub == nil {
 		return "(group empty)"
 	}
@@ -167,13 +165,13 @@ func (g group) Stringify(indent int) string {
 		g.sub.Stringify(indent+2))
 }
 
-type infix struct {
-	op  token
+type infixExpr struct {
+	op  string
 	lhs expression
 	rhs expression
 }
 
-func (b infix) Stringify(indent int) string {
+func (b infixExpr) Stringify(indent int) string {
 	return fmt.Sprintf("(infix-app %s\n%s%s\n%s%s)",
 		b.op,
 		strings.Repeat(" ", indent+2),
@@ -182,31 +180,31 @@ func (b infix) Stringify(indent int) string {
 		b.rhs.Stringify(indent+2))
 }
 
-type prefix struct {
-	op      token
+type prefixExpr struct {
+	op      string
 	subject expression
 }
 
-func (p prefix) Stringify(indent int) string {
+func (p prefixExpr) Stringify(indent int) string {
 	return fmt.Sprintf("(prefix-app %s\n%s%s)",
 		p.op,
 		strings.Repeat(" ", indent+2),
 		p.subject.Stringify(indent+2))
 }
 
-type number struct {
+type numberExpr struct {
 	value *big.Float
 }
 
-func (n number) Stringify(indent int) string {
+func (n numberExpr) Stringify(indent int) string {
 	return fmt.Sprintf("(number %s)", n.value.String())
 }
 
-type identifier struct {
+type identifierExpr struct {
 	value string
 }
 
-func (i identifier) Stringify(indent int) string {
+func (i identifierExpr) Stringify(indent int) string {
 	return fmt.Sprintf("(identifier %s)", i.value)
 }
 
@@ -279,7 +277,7 @@ func (p *parser) parseGroup() (expression, error) {
 		return nil, fmt.Errorf("expecting a closing paren but got %s instead", next)
 	}
 
-	return &group{sub: sub}, nil
+	return &groupExpr{sub: sub}, nil
 }
 
 func (p *parser) parseNumber() (expression, error) {
@@ -292,19 +290,19 @@ func (p *parser) parseNumber() (expression, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse number: %v", err)
 	}
-	return &number{value: value}, nil
+	return &numberExpr{value: value}, nil
 }
 
 func (p *parser) parsePrefix() (expression, error) {
 	id := p.eat()
 	if p.done() {
-		return &identifier{id.lexeme}, nil
+		return &identifierExpr{id.lexeme}, nil
 	}
 	subject, err := p.parse()
 	if err != nil {
 		return nil, err
 	}
-	return &prefix{op: id, subject: subject}, nil
+	return &prefixExpr{op: id.lexeme, subject: subject}, nil
 }
 
 func (p *parser) parseInfix() (expression, error) {
@@ -318,7 +316,7 @@ func (p *parser) parseInfix() (expression, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = &infix{op: op, lhs: expr, rhs: rhs}
+		expr = &infixExpr{op: op.lexeme, lhs: expr, rhs: rhs}
 	}
 	return expr, err
 }
