@@ -1,29 +1,4 @@
-// Parses the following grammar:
-//
-// expr = app
-//      | op
-//      | unit
-//      ;
-//
-// op = expr id expr
-//    ;
-//
-// app = id expr ( expr ) *
-//     ;
-//
-// unit = group
-//      | num
-//      | id
-//      ;
-//
-// group = "(" expr ")"
-//       ;
-//
-// id = ?? valid identifier characters ??
-//
-// num = ?? valid number characters ??
-
-package main
+package parser
 
 import (
 	"errors"
@@ -143,68 +118,68 @@ func eat(runes []rune, pos, max int, pred runePred) ([]rune, int) {
 	return buff, len(buff)
 }
 
-type expression interface {
+type Expr interface {
 	Stringify(indent int) string
 }
 
-type groupExpr struct {
-	sub expression
+type Group struct {
+	Sub Expr
 }
 
-func (g groupExpr) Stringify(indent int) string {
-	if g.sub == nil {
+func (g Group) Stringify(indent int) string {
+	if g.Sub == nil {
 		return "(group empty)"
 	}
 	return fmt.Sprintf("(group\n%s%s)",
 		strings.Repeat(" ", indent+2),
-		g.sub.Stringify(indent+2))
+		g.Sub.Stringify(indent+2))
 }
 
-type opExpr struct {
-	op  string
-	lhs expression
-	rhs expression
+type Op struct {
+	Op  string
+	Lhs Expr
+	Rhs Expr
 }
 
-func (b opExpr) Stringify(indent int) string {
+func (o Op) Stringify(indent int) string {
 	return fmt.Sprintf("(op %s\n%s%s\n%s%s)",
-		b.op,
+		o.Op,
 		strings.Repeat(" ", indent+2),
-		b.lhs.Stringify(indent+2),
+		o.Lhs.Stringify(indent+2),
 		strings.Repeat(" ", indent+2),
-		b.rhs.Stringify(indent+2))
+		o.Rhs.Stringify(indent+2))
 }
 
-type appExpr struct {
-	op   string
-	args []expression
+type App struct {
+	Op   string
+	Args []Expr
 }
 
-func (p appExpr) Stringify(indent int) string {
+func (p App) Stringify(indent int) string {
 	var args []string
-	for _, arg := range p.args {
+	for _, arg := range p.Args {
 		args = append(args, arg.Stringify(indent+2))
 	}
 
 	pad := "\n" + strings.Repeat(" ", indent+2)
 	left := strings.Join(args, pad)
-	return fmt.Sprintf("(app %s%s%s)", p.op, pad, left)
+	return fmt.Sprintf("(app %s%s%s)", p.Op, pad, left)
 }
 
-type numberExpr struct {
-	value *big.Float
+type Num struct {
+	Value *big.Float
 }
 
-func (n numberExpr) Stringify(indent int) string {
-	return fmt.Sprintf("(number %s)", n.value.String())
+func (n Num) Stringify(indent int) string {
+	return fmt.Sprintf("(num %s)", n.Value.String())
 }
 
-type identifierExpr struct {
-	value string
+type Id struct {
+	Value string
 }
 
-func (i identifierExpr) Stringify(indent int) string {
-	return fmt.Sprintf("(identifier %s)", i.value)
+func (i Id) Stringify(indent int) string {
+	return fmt.Sprintf("(id %s)", i.Value)
 }
 
 type parser struct {
@@ -214,7 +189,7 @@ type parser struct {
 	fns    map[string]int
 }
 
-func parse(input string) (expression, error) {
+func Parse(input string) (Expr, error) {
 	return newParser(input).parse()
 }
 
@@ -266,7 +241,7 @@ func (p *parser) done() bool {
 	return p.pos >= len(p.tokens)
 }
 
-func (p *parser) parse() (expression, error) {
+func (p *parser) parse() (Expr, error) {
 	if p.done() {
 		return nil, errors.New("unexpected eof")
 	}
@@ -277,11 +252,11 @@ func (p *parser) parse() (expression, error) {
 //      | op
 //      | unit
 //      ;
-func (p *parser) expr() (expression, error) {
+func (p *parser) expr() (Expr, error) {
 	next := p.peek()
 	if argc, ok := p.isFn(next.lexeme); ok {
 		op := p.eat()
-		var args []expression
+		var args []Expr
 		for ; argc > 0; argc-- {
 			arg, err := p.parse()
 			if err != nil {
@@ -289,7 +264,7 @@ func (p *parser) expr() (expression, error) {
 			}
 			args = append(args, arg)
 		}
-		return &appExpr{op: op.lexeme, args: args}, nil
+		return &App{Op: op.lexeme, Args: args}, nil
 	}
 
 	expr, err := p.unit()
@@ -303,7 +278,7 @@ func (p *parser) expr() (expression, error) {
 		if err != nil {
 			return nil, err
 		}
-		expr = &opExpr{op: op.lexeme, lhs: expr, rhs: rhs}
+		expr = &Op{Op: op.lexeme, Lhs: expr, Rhs: rhs}
 		return expr, nil
 	}
 
@@ -314,7 +289,7 @@ func (p *parser) expr() (expression, error) {
 //      | num
 //      | id
 //      ;
-func (p *parser) unit() (expression, error) {
+func (p *parser) unit() (Expr, error) {
 	next := p.peek()
 	if next.eqv(tokenCloseParen) {
 		return nil, nil
@@ -328,7 +303,7 @@ func (p *parser) unit() (expression, error) {
 
 // group = "(" expr ")"
 //       ;
-func (p *parser) group() (expression, error) {
+func (p *parser) group() (Expr, error) {
 	next := p.eat()
 	if !next.eqv(tokenOpenParen) {
 		return nil, fmt.Errorf("expecting an open paren but got %s instead", next)
@@ -344,15 +319,15 @@ func (p *parser) group() (expression, error) {
 		return nil, fmt.Errorf("expecting a closing paren but got %s instead", next)
 	}
 
-	return &groupExpr{sub: sub}, nil
+	return &Group{Sub: sub}, nil
 }
 
-func (p *parser) id() (expression, error) {
+func (p *parser) id() (Expr, error) {
 	id := p.eat()
-	return &identifierExpr{id.lexeme}, nil
+	return &Id{id.lexeme}, nil
 }
 
-func (p *parser) num() (expression, error) {
+func (p *parser) num() (Expr, error) {
 	next := p.eat()
 	if !next.is(tokNum) {
 		return nil, fmt.Errorf("expecting a number but got %s instead", next)
@@ -362,5 +337,5 @@ func (p *parser) num() (expression, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse number: %v", err)
 	}
-	return &numberExpr{value: value}, nil
+	return &Num{Value: value}, nil
 }

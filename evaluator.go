@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+
+	"github.com/minond/calc/parser"
 )
 
 type environment struct {
-	values map[string]value
+	values map[string]Value
 }
 
 func (env *environment) has(id string) bool {
@@ -15,17 +17,17 @@ func (env *environment) has(id string) bool {
 	return ok
 }
 
-func (env *environment) get(id string) value {
+func (env *environment) get(id string) Value {
 	return env.values[id]
 }
 
-func (env *environment) set(id string, val value) {
+func (env *environment) set(id string, val Value) {
 	env.values[id] = val
 }
 
 func newEnvironment() *environment {
 	return &environment{
-		values: map[string]value{
+		values: map[string]Value{
 			"*":   builtinMul,
 			"+":   builtinAdd,
 			"abs": builtinAbs,
@@ -64,7 +66,7 @@ var (
 	tyFunction = tyFunctionS{}
 )
 
-func validTypes(expected []ty, args ...value) error {
+func validTypes(expected []ty, args ...Value) error {
 	if len(expected) != len(args) {
 		return fmt.Errorf("expected %d arguments but got %d",
 			len(expected), len(args))
@@ -78,17 +80,17 @@ func validTypes(expected []ty, args ...value) error {
 	return nil
 }
 
-type value interface {
+type Value interface {
 	Stringify() string
 	Type() ty
 }
 
 type numberValue struct {
-	value *big.Float
+	Value *big.Float
 }
 
 func (n *numberValue) Stringify() string {
-	return n.value.Text('g', -1)
+	return n.Value.Text('g', -1)
 }
 
 func (n *numberValue) Type() ty {
@@ -96,12 +98,12 @@ func (n *numberValue) Type() ty {
 }
 
 type builtinFuncValue struct {
-	args  []ty
-	apply func(env *environment, vals ...value) (value, error)
+	Args  []ty
+	apply func(env *environment, vals ...Value) (Value, error)
 }
 
 func (b *builtinFuncValue) Stringify() string {
-	return fmt.Sprintf("builtin/%d", len(b.args))
+	return fmt.Sprintf("builtin/%d", len(b.Args))
 }
 
 func (b *builtinFuncValue) Type() ty {
@@ -110,67 +112,67 @@ func (b *builtinFuncValue) Type() ty {
 
 var (
 	builtinAdd = &builtinFuncValue{
-		args: []ty{tyNumber, tyNumber},
-		apply: func(env *environment, vals ...value) (value, error) {
+		Args: []ty{tyNumber, tyNumber},
+		apply: func(env *environment, vals ...Value) (Value, error) {
 			lhs := vals[0].(*numberValue)
 			rhs := vals[1].(*numberValue)
-			res := big.NewFloat(0).Add(lhs.value, rhs.value)
-			return &numberValue{value: res}, nil
+			res := big.NewFloat(0).Add(lhs.Value, rhs.Value)
+			return &numberValue{Value: res}, nil
 		},
 	}
 
 	builtinMul = &builtinFuncValue{
-		args: []ty{tyNumber, tyNumber},
-		apply: func(env *environment, vals ...value) (value, error) {
+		Args: []ty{tyNumber, tyNumber},
+		apply: func(env *environment, vals ...Value) (Value, error) {
 			lhs := vals[0].(*numberValue)
 			rhs := vals[1].(*numberValue)
-			res := big.NewFloat(0).Mul(lhs.value, rhs.value)
-			return &numberValue{value: res}, nil
+			res := big.NewFloat(0).Mul(lhs.Value, rhs.Value)
+			return &numberValue{Value: res}, nil
 		},
 	}
 
 	builtinNeg = &builtinFuncValue{
-		args: []ty{tyNumber},
-		apply: func(env *environment, vals ...value) (value, error) {
+		Args: []ty{tyNumber},
+		apply: func(env *environment, vals ...Value) (Value, error) {
 			sub := vals[0].(*numberValue)
-			res := big.NewFloat(0).Neg(sub.value)
-			return &numberValue{value: res}, nil
+			res := big.NewFloat(0).Neg(sub.Value)
+			return &numberValue{Value: res}, nil
 		},
 	}
 
 	builtinAbs = &builtinFuncValue{
-		args: []ty{tyNumber},
-		apply: func(env *environment, vals ...value) (value, error) {
+		Args: []ty{tyNumber},
+		apply: func(env *environment, vals ...Value) (Value, error) {
 			sub := vals[0].(*numberValue)
-			res := big.NewFloat(0).Abs(sub.value)
-			return &numberValue{value: res}, nil
+			res := big.NewFloat(0).Abs(sub.Value)
+			return &numberValue{Value: res}, nil
 		},
 	}
 )
 
-func eval(env *environment, expr expression) (value, error) {
+func eval(env *environment, expr parser.Expr) (Value, error) {
 	switch e := expr.(type) {
-	case *numberExpr:
-		return &numberValue{value: e.value}, nil
-	case *identifierExpr:
-		if !env.has(e.value) {
-			return nil, fmt.Errorf("%s is not defined", e.value)
+	case *parser.Num:
+		return &numberValue{Value: e.Value}, nil
+	case *parser.Id:
+		if !env.has(e.Value) {
+			return nil, fmt.Errorf("%s is not defined", e.Value)
 		}
-		return env.get(e.value), nil
-	case *groupExpr:
-		return eval(env, e.sub)
+		return env.get(e.Value), nil
+	case *parser.Group:
+		return eval(env, e.Sub)
 
-	case *appExpr:
-		if !env.has(e.op) {
-			return nil, fmt.Errorf("%s is not defined", e.op)
+	case *parser.App:
+		if !env.has(e.Op) {
+			return nil, fmt.Errorf("%s is not defined", e.Op)
 		}
-		fn, valid := env.get(e.op).(*builtinFuncValue)
+		fn, valid := env.get(e.Op).(*builtinFuncValue)
 		if !valid {
-			return nil, fmt.Errorf("%s is not a function", e.op)
+			return nil, fmt.Errorf("%s is not a function", e.Op)
 		}
 
-		var args []value
-		for _, arg := range e.args {
+		var args []Value
+		for _, arg := range e.Args {
 			val, err := eval(env, arg)
 			if err != nil {
 				return nil, err
@@ -178,22 +180,22 @@ func eval(env *environment, expr expression) (value, error) {
 			args = append(args, val)
 		}
 
-		if err := validTypes(fn.args, args...); err != nil {
+		if err := validTypes(fn.Args, args...); err != nil {
 			return nil, err
 		}
 
 		return fn.apply(env, args...)
 
-	case *opExpr:
-		if e.op == "=" {
+	case *parser.Op:
+		if e.Op == "=" {
 			var key string
-			switch id := e.lhs.(type) {
-			case *identifierExpr:
-				key = id.value
+			switch id := e.Lhs.(type) {
+			case *parser.Id:
+				key = id.Value
 			default:
 				return nil, errors.New("invalid identifier")
 			}
-			val, err := eval(env, e.rhs)
+			val, err := eval(env, e.Rhs)
 			if err != nil {
 				return nil, err
 			}
@@ -201,24 +203,24 @@ func eval(env *environment, expr expression) (value, error) {
 			return val, nil
 		}
 
-		if !env.has(e.op) {
-			return nil, fmt.Errorf("%s is not defined", e.op)
+		if !env.has(e.Op) {
+			return nil, fmt.Errorf("%s is not defined", e.Op)
 		}
-		fn, valid := env.get(e.op).(*builtinFuncValue)
+		fn, valid := env.get(e.Op).(*builtinFuncValue)
 		if !valid {
-			return nil, fmt.Errorf("%s is not a function", e.op)
+			return nil, fmt.Errorf("%s is not a function", e.Op)
 		}
 
-		lhs, err := eval(env, e.lhs)
+		lhs, err := eval(env, e.Lhs)
 		if err != nil {
 			return nil, err
 		}
-		rhs, err := eval(env, e.rhs)
+		rhs, err := eval(env, e.Rhs)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := validTypes(fn.args, lhs, rhs); err != nil {
+		if err := validTypes(fn.Args, lhs, rhs); err != nil {
 			return nil, err
 		}
 

@@ -1,6 +1,10 @@
 package main
 
-import "os"
+import (
+	"os"
+
+	"github.com/minond/calc/parser"
+)
 
 func main() {
 	var debug bool
@@ -23,9 +27,8 @@ loop:
 		case "debug":
 			debug = !debug
 		default:
-			expr, err := parse(input)
+			expr, err := parser.Parse(input)
 			if err != nil {
-				r.write("tokens: %s\n", tokenize(input))
 				r.write("syntax error: %v\n\n", err)
 				continue
 			} else if debug {
