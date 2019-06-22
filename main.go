@@ -37,7 +37,7 @@ loop:
 				continue
 			}
 
-			val, err := eval(env, expr)
+			val, err := value.Eval(env, expr)
 			if err != nil {
 				r.write("error: %v\n\n", err)
 			} else {

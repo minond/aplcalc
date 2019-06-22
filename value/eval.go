@@ -1,33 +1,32 @@
-package main
+package value
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/minond/calc/parser"
-	"github.com/minond/calc/value"
 )
 
-func eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
+func Eval(env *Environment, expr parser.Expr) (Value, error) {
 	switch e := expr.(type) {
 	case *parser.Num:
-		return &value.Num{Value: e.Value}, nil
+		return &Num{Value: e.Value}, nil
 	case *parser.Id:
 		if !env.HasVal(e.Value) {
 			return nil, fmt.Errorf("%s is not defined", e.Value)
 		}
 		return env.GetVal(e.Value), nil
 	case *parser.Group:
-		return eval(env, e.Sub)
+		return Eval(env, e.Sub)
 
 	case *parser.App:
 		if !env.HasFn(e.Op) {
 			return nil, fmt.Errorf("%s is not defined", e.Op)
 		}
 		fn := env.GetFn(e.Op)
-		var args []value.Value
+		var args []Value
 		for _, arg := range e.Args {
-			val, err := eval(env, arg)
+			val, err := Eval(env, arg)
 			if err != nil {
 				return nil, err
 			}
@@ -45,7 +44,7 @@ func eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 			default:
 				return nil, errors.New("invalid identifier")
 			}
-			val, err := eval(env, e.Rhs)
+			val, err := Eval(env, e.Rhs)
 			if err != nil {
 				return nil, err
 			}
@@ -57,11 +56,11 @@ func eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 			return nil, fmt.Errorf("%s is not defined", e.Op)
 		}
 		op := env.GetOp(e.Op)
-		lhs, err := eval(env, e.Lhs)
+		lhs, err := Eval(env, e.Lhs)
 		if err != nil {
 			return nil, err
 		}
-		rhs, err := eval(env, e.Rhs)
+		rhs, err := Eval(env, e.Rhs)
 		if err != nil {
 			return nil, err
 		}
