@@ -1,6 +1,10 @@
 package parser
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/minond/calc/value"
+)
 
 func TestParse(t *testing.T) {
 	tests := []struct {
@@ -23,9 +27,12 @@ func TestParse(t *testing.T) {
 		{"infix with two identifiers", "a + b", "(op +\n  (id a)\n  (id b))"},
 	}
 
+	e := value.NewEnvironment()
+	p := NewParser(e)
+
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ast, err := Parse(test.input)
+			ast, err := p.Parse(test.input)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			} else if ast.Stringify(0) != test.output {

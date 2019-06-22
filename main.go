@@ -6,13 +6,15 @@ import (
 	"github.com/minond/calc/parser"
 	"github.com/minond/calc/repl"
 	"github.com/minond/calc/value"
+	"github.com/minond/calc/value/evaluator"
 )
 
 func main() {
 	debug := false
 	running := true
-	env := value.NewEnvironment()
 
+	e := value.NewEnvironment()
+	p := parser.NewParser(e)
 	r := repl.Repl{
 		Input:  os.Stdin,
 		Output: os.Stdout,
@@ -29,7 +31,7 @@ func main() {
 		case "debug":
 			debug = !debug
 		default:
-			expr, err := parser.Parse(input)
+			expr, err := p.Parse(input)
 			if err != nil {
 				r.Write("syntax error: %v\n\n", err)
 				continue
@@ -38,11 +40,11 @@ func main() {
 				continue
 			}
 
-			val, err := value.Eval(env, expr)
+			val, err := evaluator.Eval(e, expr)
 			if err != nil {
 				r.Write("error: %v\n\n", err)
 			} else {
-				env.SetVal("_", val)
+				e.SetVal("_", val)
 				r.Write("= %s\n\n", val.Stringify())
 			}
 		}

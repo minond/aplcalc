@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"unicode"
+
+	"github.com/minond/calc/value"
 )
 
 type tok uint8
@@ -183,41 +186,34 @@ func (i Id) Stringify(indent int) string {
 }
 
 type parser struct {
+	env *value.Environment
+
+	mux    sync.Mutex
 	tokens []token
 	pos    int
-	ops    []string
-	fns    map[string]int
 }
 
-func Parse(input string) (Expr, error) {
-	return newParser(input).parse()
+func NewParser(env *value.Environment) *parser {
+	return &parser{env: env}
 }
 
-func newParser(input string) *parser {
-	return &parser{
-		tokens: tokenize(input),
-		// XXX don't hardcode this
-		ops: []string{"+"},
-		fns: map[string]int{
-			"abs":    1,
-			"select": 2,
-			"from":   1,
-		},
-	}
+func (p *parser) Parse(input string) (Expr, error) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+	p.tokens = tokenize(input)
+	p.pos = 0
+	return p.expr()
 }
 
 func (p *parser) isOp(op string) bool {
-	for _, x := range p.ops {
-		if x == op {
-			return true
-		}
-	}
-	return false
+	return p.env.HasOp(op)
 }
 
 func (p *parser) isFn(fn string) (int, bool) {
-	argc, ok := p.fns[fn]
-	return argc, ok
+	if p.env.HasFn(fn) {
+		return p.env.GetFn(fn).Argc, true
+	}
+	return 0, false
 }
 
 func (p *parser) lookahead(n int) token {
@@ -241,24 +237,21 @@ func (p *parser) done() bool {
 	return p.pos >= len(p.tokens)
 }
 
-func (p *parser) parse() (Expr, error) {
-	if p.done() {
-		return nil, errors.New("unexpected eof")
-	}
-	return p.expr()
-}
-
 // expr = app
 //      | op
 //      | unit
 //      ;
 func (p *parser) expr() (Expr, error) {
+	if p.done() {
+		return nil, errors.New("unexpected eof")
+	}
+
 	next := p.peek()
 	if argc, ok := p.isFn(next.lexeme); ok {
 		op := p.eat()
 		var args []Expr
 		for ; argc > 0; argc-- {
-			arg, err := p.parse()
+			arg, err := p.expr()
 			if err != nil {
 				return nil, err
 			}
@@ -274,7 +267,7 @@ func (p *parser) expr() (Expr, error) {
 
 	if p.isOp(p.peek().lexeme) {
 		op := p.eat()
-		rhs, err := p.parse()
+		rhs, err := p.expr()
 		if err != nil {
 			return nil, err
 		}
@@ -309,7 +302,7 @@ func (p *parser) group() (Expr, error) {
 		return nil, fmt.Errorf("expecting an open paren but got %s instead", next)
 	}
 
-	sub, err := p.parse()
+	sub, err := p.expr()
 	if err != nil {
 		return nil, err
 	}

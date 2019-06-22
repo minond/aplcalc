@@ -1,16 +1,17 @@
-package value
+package evaluator
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/minond/calc/parser"
+	"github.com/minond/calc/value"
 )
 
-func Eval(env *Environment, expr parser.Expr) (Value, error) {
+func Eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 	switch e := expr.(type) {
 	case *parser.Num:
-		return &Num{Value: e.Value}, nil
+		return &value.Num{Value: e.Value}, nil
 	case *parser.Id:
 		if !env.HasVal(e.Value) {
 			return nil, fmt.Errorf("%s is not defined", e.Value)
@@ -24,7 +25,7 @@ func Eval(env *Environment, expr parser.Expr) (Value, error) {
 			return nil, fmt.Errorf("%s is not defined", e.Op)
 		}
 		fn := env.GetFn(e.Op)
-		var args []Value
+		var args []value.Value
 		for _, arg := range e.Args {
 			val, err := Eval(env, arg)
 			if err != nil {
