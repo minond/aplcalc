@@ -57,28 +57,20 @@ func (t token) eqv(other token) bool {
 func (t token) String() string {
 	switch t.tok {
 	case tokEOF:
-		return "(eof)"
+		return "(token-eof)"
 	case tokNum:
-		return fmt.Sprintf("(num `%s`)", t.lexeme)
+		return fmt.Sprintf("(token-num `%s`)", t.lexeme)
 	case tokWord:
-		return fmt.Sprintf("(word `%s`)", t.lexeme)
+		return fmt.Sprintf("(token-word `%s`)", t.lexeme)
 	default:
-		return fmt.Sprintf("(unknown `%s`)", t.lexeme)
+		return fmt.Sprintf("(token-unknown `%s`)", t.lexeme)
 	}
 }
 
 var (
-	tokenEOF = token{tok: tokEOF}
-
+	tokenEOF        = token{tok: tokEOF}
 	tokenCloseParen = token{tok: tokWord, lexeme: ")"}
-	tokenDiv        = token{tok: tokWord, lexeme: "/"}
-	tokenEq         = token{tok: tokWord, lexeme: "="}
-	tokenExp        = token{tok: tokWord, lexeme: "^"}
-	tokenMinus      = token{tok: tokWord, lexeme: "-"}
-	tokenMod        = token{tok: tokWord, lexeme: "%"}
-	tokenMult       = token{tok: tokWord, lexeme: "*"}
 	tokenOpenParen  = token{tok: tokWord, lexeme: "("}
-	tokenPlus       = token{tok: tokWord, lexeme: "+"}
 )
 
 func tokenize(input string) []token {

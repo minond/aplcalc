@@ -14,13 +14,13 @@ func TestParse(t *testing.T) {
 		{"long identifier", "jfkdlsa$%%@$@#", "(identifier jfkdlsa$%%@$@#)"},
 		{"empty group", "()", "(group empty)"},
 		{"nested empty group", "((()))", "(group\n  (group\n    (group empty)))"},
-		{"prefix expression for number", "abs 1", "(prefix-app abs\n  (number 1))"},
-		{"prefix expression for identifier", "abs abc", "(prefix-app abs\n  (identifier abc))"},
-		{"infix expression", "1 + 2", "(infix-app +\n  (number 1)\n  (number 2))"},
-		{"multiple infix expressions", "1 + 2 + 3 + 4 + 5", "(infix-app +\n  (number 1)\n  (infix-app +\n    (number 2)\n    (infix-app +\n      (number 3)\n      (infix-app +\n        (number 4)\n        (number 5)))))"},
-		{"infix with an identifier and a number", "a + 1", "(infix-app +\n  (identifier a)\n  (number 1))"},
-		{"infix with a number and an identifier", "1 + a", "(infix-app +\n  (number 1)\n  (identifier a))"},
-		{"infix with two identifiers", "a + b", "(infix-app +\n  (identifier a)\n  (identifier b))"},
+		{"prefix expression for number", "abs 1", "(app abs\n  (number 1))"},
+		{"prefix expression for identifier", "abs abc", "(app abs\n  (identifier abc))"},
+		{"infix expression", "1 + 2", "(op +\n  (number 1)\n  (number 2))"},
+		{"multiple infix expressions", "1 + 2 + 3 + 4 + 5", "(op +\n  (number 1)\n  (op +\n    (number 2)\n    (op +\n      (number 3)\n      (op +\n        (number 4)\n        (number 5)))))"},
+		{"infix with an identifier and a number", "a + 1", "(op +\n  (identifier a)\n  (number 1))"},
+		{"infix with a number and an identifier", "1 + a", "(op +\n  (number 1)\n  (identifier a))"},
+		{"infix with two identifiers", "a + b", "(op +\n  (identifier a)\n  (identifier b))"},
 	}
 
 	for _, test := range tests {
