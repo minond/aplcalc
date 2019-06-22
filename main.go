@@ -27,6 +27,7 @@ loop:
 			if err != nil {
 				r.write("tokens: %s\n", tokenize(input))
 				r.write("syntax error: %v\n\n", err)
+				continue
 			} else if debug {
 				r.write("%s\n\n", expr.Stringify(0))
 				continue

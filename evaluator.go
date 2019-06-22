@@ -160,7 +160,7 @@ func eval(env *environment, expr expression) (value, error) {
 	case *groupExpr:
 		return eval(env, e.sub)
 
-	case *prefixExpr:
+	case *appExpr:
 		if !env.has(e.op) {
 			return nil, fmt.Errorf("%s is not defined", e.op)
 		}
@@ -169,18 +169,22 @@ func eval(env *environment, expr expression) (value, error) {
 			return nil, fmt.Errorf("%s is not a function", e.op)
 		}
 
-		sub, err := eval(env, e.subject)
-		if err != nil {
+		var args []value
+		for _, arg := range e.args {
+			val, err := eval(env, arg)
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, val)
+		}
+
+		if err := validTypes(fn.args, args...); err != nil {
 			return nil, err
 		}
 
-		if err := validTypes(fn.args, sub); err != nil {
-			return nil, err
-		}
+		return fn.apply(env, args...)
 
-		return fn.apply(env, sub)
-
-	case *infixExpr:
+	case *opExpr:
 		if e.op == "=" {
 			var key string
 			switch id := e.lhs.(type) {

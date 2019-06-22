@@ -1,9 +1,15 @@
 // Parses the following grammar:
 //
-// expr = prefix
-//      | infix
+// expr = app
+//      | op
 //      | unit
 //      ;
+//
+// op = expr id expr
+//    ;
+//
+// app = id expr ( expr ) *
+//     ;
 //
 // unit = group
 //      | num
@@ -162,14 +168,14 @@ func (g groupExpr) Stringify(indent int) string {
 		g.sub.Stringify(indent+2))
 }
 
-type infixExpr struct {
+type opExpr struct {
 	op  string
 	lhs expression
 	rhs expression
 }
 
-func (b infixExpr) Stringify(indent int) string {
-	return fmt.Sprintf("(infix-app %s\n%s%s\n%s%s)",
+func (b opExpr) Stringify(indent int) string {
+	return fmt.Sprintf("(op %s\n%s%s\n%s%s)",
 		b.op,
 		strings.Repeat(" ", indent+2),
 		b.lhs.Stringify(indent+2),
@@ -177,16 +183,20 @@ func (b infixExpr) Stringify(indent int) string {
 		b.rhs.Stringify(indent+2))
 }
 
-type prefixExpr struct {
-	op      string
-	subject expression
+type appExpr struct {
+	op   string
+	args []expression
 }
 
-func (p prefixExpr) Stringify(indent int) string {
-	return fmt.Sprintf("(prefix-app %s\n%s%s)",
-		p.op,
-		strings.Repeat(" ", indent+2),
-		p.subject.Stringify(indent+2))
+func (p appExpr) Stringify(indent int) string {
+	var args []string
+	for _, arg := range p.args {
+		args = append(args, arg.Stringify(indent+2))
+	}
+
+	pad := "\n" + strings.Repeat(" ", indent+2)
+	left := strings.Join(args, pad)
+	return fmt.Sprintf("(app %s%s%s)", p.op, pad, left)
 }
 
 type numberExpr struct {
@@ -208,6 +218,8 @@ func (i identifierExpr) Stringify(indent int) string {
 type parser struct {
 	tokens []token
 	pos    int
+	ops    []string
+	fns    map[string]int
 }
 
 func parse(input string) (expression, error) {
@@ -215,7 +227,30 @@ func parse(input string) (expression, error) {
 }
 
 func newParser(input string) *parser {
-	return &parser{tokens: tokenize(input)}
+	return &parser{
+		tokens: tokenize(input),
+		// XXX don't hardcode this
+		ops: []string{"+"},
+		fns: map[string]int{
+			"abs":    1,
+			"select": 2,
+			"from":   1,
+		},
+	}
+}
+
+func (p *parser) isOp(op string) bool {
+	for _, x := range p.ops {
+		if x == op {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *parser) isFn(fn string) (int, bool) {
+	argc, ok := p.fns[fn]
+	return argc, ok
 }
 
 func (p *parser) lookahead(n int) token {
@@ -246,20 +281,23 @@ func (p *parser) parse() (expression, error) {
 	return p.expr()
 }
 
-// expr = prefix
-//      | infix
+// expr = app
+//      | op
 //      | unit
 //      ;
 func (p *parser) expr() (expression, error) {
 	next := p.peek()
-	// XXX if is unary
-	if next.lexeme == "abs" {
+	if argc, ok := p.isFn(next.lexeme); ok {
 		op := p.eat()
-		sub, err := p.parse()
-		if err != nil {
-			return nil, err
+		var args []expression
+		for ; argc > 0; argc-- {
+			arg, err := p.parse()
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, arg)
 		}
-		return &prefixExpr{op: op.lexeme, subject: sub}, nil
+		return &appExpr{op: op.lexeme, args: args}, nil
 	}
 
 	expr, err := p.unit()
@@ -267,14 +305,13 @@ func (p *parser) expr() (expression, error) {
 		return nil, err
 	}
 
-	// XXX if is binary
-	if p.peek().lexeme == "+" {
+	if p.isOp(p.peek().lexeme) {
 		op := p.eat()
 		rhs, err := p.parse()
 		if err != nil {
 			return nil, err
 		}
-		expr = &infixExpr{op: op.lexeme, lhs: expr, rhs: rhs}
+		expr = &opExpr{op: op.lexeme, lhs: expr, rhs: rhs}
 		return expr, nil
 	}
 
