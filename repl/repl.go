@@ -12,6 +12,10 @@ type Repl struct {
 	Output io.Writer
 }
 
+func NewRepl(input io.Reader, output io.Writer) Repl {
+	return Repl{Input: input, Output: output}
+}
+
 func (repl Repl) Read() (string, error) {
 	reader := bufio.NewReader(repl.Input)
 	input, err := reader.ReadString('\n')
