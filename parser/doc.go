@@ -1,25 +1,32 @@
 // Package parser parses the following grammar:
 //
-// expr = app
-//      | op
-//      | unit
-//      ;
 //
-// op = expr id expr
-//    ;
+//     expr = app
+//          | op
+//          | unit
+//          ;
 //
-// app = id expr ( expr ) *
-//     ;
+//     op = expr id expr
+//        ;
 //
-// unit = group
-//      | num
-//      | id
-//      ;
+//     app = id expr ( expr ) *
+//         ;
 //
-// group = "(" expr ")"
-//       ;
+//     unit = group
+//          | num
+//          | id
+//          ;
 //
-// id = ?? valid identifier characters ??
+//     group = "(" expr ")"
+//           ;
 //
-// num = ?? valid number characters ??
+//     id = ?? valid identifier characters ??
+//
+//     num = ?? valid number characters ??
+//
+//
+// Both `app` and `op` are contect-sensitive. With the use of a reference to
+// the local environemnt, the parser can tell if it should continue parsing a
+// function application with a specific number of arguments or an infix
+// operator.
 package parser
