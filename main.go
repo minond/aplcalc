@@ -4,11 +4,12 @@ import (
 	"os"
 
 	"github.com/minond/calc/parser"
+	"github.com/minond/calc/value"
 )
 
 func main() {
 	var debug bool
-	env := newEnvironment()
+	env := value.NewEnvironment()
 
 	r := repl{
 		input:  os.Stdin,
@@ -40,7 +41,7 @@ loop:
 			if err != nil {
 				r.write("error: %v\n\n", err)
 			} else {
-				env.set("_", val)
+				env.SetVal("_", val)
 				r.write("= %s\n\n", val.Stringify())
 			}
 		}
