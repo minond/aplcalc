@@ -63,6 +63,23 @@ var mul = &Op{
 	},
 }
 
+var range_ = &Op{
+	Impl: map[ty]handler{
+		TNum: func(env *Environment, vals ...Value) (Value, error) {
+			a1, a2 := vals[0].(*Num), vals[1].(*Num)
+			min64, _ := a1.Value.Int64()
+			min := int(min64)
+			max64, _ := a2.Value.Int64()
+			max := int(max64)
+			res := &Arr{Values: make([]*Num, max-min)}
+			for i := 0; i < max-min; i++ {
+				res.Values[i] = &Num{Value: big.NewFloat(float64(min + i))}
+			}
+			return res, nil
+		},
+	},
+}
+
 var neg = &Fn{
 	Argc: 1,
 	Apply: func(env *Environment, vals ...Value) (Value, error) {
@@ -92,5 +109,13 @@ var until = &Fn{
 			res.Values[i] = &Num{Value: big.NewFloat(float64(i))}
 		}
 		return res, nil
+	},
+}
+
+var len_ = &Fn{
+	Argc: 1,
+	Apply: func(env *Environment, vals ...Value) (Value, error) {
+		arg := vals[0].(*Arr)
+		return &Num{Value: big.NewFloat(float64(len(arg.Values)))}, nil
 	},
 }
