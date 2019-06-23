@@ -169,6 +169,21 @@ func (p App) Stringify(indent int) string {
 	return fmt.Sprintf("(app %s%s%s)", p.Op, pad, left)
 }
 
+type Arr struct {
+	Values []*Num
+}
+
+func (a Arr) Stringify(indent int) string {
+	var vals []string
+	for _, val := range a.Values {
+		vals = append(vals, val.Stringify(indent+2))
+	}
+
+	pad := "\n" + strings.Repeat(" ", indent+2)
+	left := strings.Join(vals, pad)
+	return fmt.Sprintf("(array%s%s)", pad, left)
+}
+
 type Num struct {
 	Value *big.Float
 }
@@ -280,6 +295,7 @@ func (p *parser) expr() (Expr, error) {
 
 // unit = group
 //      | num
+//      | arr
 //      | id
 //      ;
 func (p *parser) unit() (Expr, error) {
@@ -288,6 +304,8 @@ func (p *parser) unit() (Expr, error) {
 		return nil, nil
 	} else if next.eqv(tokenOpenParen) {
 		return p.group()
+	} else if next.is(tokNum) && p.lookahead(1).is(tokNum) {
+		return p.arr()
 	} else if next.is(tokNum) {
 		return p.num()
 	}
@@ -320,7 +338,19 @@ func (p *parser) id() (Expr, error) {
 	return &Id{id.lexeme}, nil
 }
 
-func (p *parser) num() (Expr, error) {
+func (p *parser) arr() (Expr, error) {
+	arr := &Arr{}
+	for p.peek().is(tokNum) {
+		val, err := p.num()
+		if err != nil {
+			return nil, err
+		}
+		arr.Values = append(arr.Values, val)
+	}
+	return arr, nil
+}
+
+func (p *parser) num() (*Num, error) {
 	next := p.eat()
 	if !next.is(tokNum) {
 		return nil, fmt.Errorf("expecting a number but got %s instead", next)

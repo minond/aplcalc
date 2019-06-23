@@ -49,11 +49,23 @@ func Eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 	switch e := expr.(type) {
 	case *parser.Num:
 		return &value.Num{Value: e.Value}, nil
-	case *parser.Id:
-		if !env.HasVal(e.Value) {
-			return nil, fmt.Errorf("%s is not defined", e.Value)
+	case *parser.Arr:
+		arr := &value.Arr{Values: make([]*value.Num, len(e.Values))}
+		for i, val := range e.Values {
+			arr.Values[i] = &value.Num{Value: val.Value}
 		}
-		return env.GetVal(e.Value), nil
+		return arr, nil
+	case *parser.Id:
+		if env.HasVal(e.Value) {
+			return env.GetVal(e.Value), nil
+		}
+		if env.HasOp(e.Value) {
+			return env.GetOp(e.Value), nil
+		}
+		if env.HasFn(e.Value) {
+			return env.GetFn(e.Value), nil
+		}
+		return nil, fmt.Errorf("%s is not defined", e.Value)
 	case *parser.Group:
 		return Eval(env, e.Sub)
 

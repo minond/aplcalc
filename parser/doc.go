@@ -14,8 +14,12 @@
 //
 //     unit = group
 //          | num
+//          | arr
 //          | id
 //          ;
+//
+//     arr = ( num ) *
+//         ;
 //
 //     group = "(" expr ")"
 //           ;

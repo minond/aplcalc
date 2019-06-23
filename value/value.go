@@ -3,6 +3,7 @@ package value
 import (
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 type Value interface {
@@ -15,6 +16,18 @@ type Num struct {
 
 func (n *Num) Stringify() string {
 	return n.Value.Text('g', -1)
+}
+
+type Arr struct {
+	Values []*Num
+}
+
+func (a *Arr) Stringify() string {
+	var vals []string
+	for _, val := range a.Values {
+		vals = append(vals, val.Stringify())
+	}
+	return strings.Join(vals, " ")
 }
 
 type Op struct {
