@@ -83,7 +83,7 @@ func Eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 			args = append(args, val)
 		}
 
-		return fn.Apply(env, args...)
+		return fn.Dispatch(env, args...)
 
 	case *parser.Op:
 		if e.Op == ":=" {

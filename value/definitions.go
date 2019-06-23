@@ -60,7 +60,7 @@ var mul = &Op{
 }
 
 var range_ = &Op{
-	Impl: map[signature]handler{
+	Impl: fntable{
 		sig(TNum, TNum): func(env *Environment, vals ...Value) (Value, error) {
 			a1, a2 := vals[0].(*Num), vals[1].(*Num)
 			min64, _ := a1.Value.Int64()
@@ -77,7 +77,7 @@ var range_ = &Op{
 }
 
 var access = &Op{
-	Impl: map[signature]handler{
+	Impl: fntable{
 		sig(TArr, TArr): func(env *Environment, vals ...Value) (Value, error) {
 			orig := vals[0].(*Arr)
 			idxs := vals[1].(*Arr)
@@ -117,7 +117,7 @@ var access = &Op{
 }
 
 var set = &Op{
-	Impl: map[signature]handler{
+	Impl: fntable{
 		sig(TArr, TNum): func(env *Environment, vals ...Value) (Value, error) {
 			arr := vals[0].(*Arr)
 			num := vals[1].(*Num)
@@ -141,40 +141,48 @@ var set = &Op{
 
 var neg = &Fn{
 	Argc: 1,
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		arg := vals[0].(*Num)
-		res := big.NewFloat(0).Neg(arg.Value)
-		return &Num{Value: res}, nil
+	Impl: fntable{
+		sig(TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arg := vals[0].(*Num)
+			res := big.NewFloat(0).Neg(arg.Value)
+			return &Num{Value: res}, nil
+		},
 	},
 }
 
 var abs = &Fn{
 	Argc: 1,
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		arg := vals[0].(*Num)
-		res := big.NewFloat(0).Abs(arg.Value)
-		return &Num{Value: res}, nil
+	Impl: fntable{
+		sig(TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arg := vals[0].(*Num)
+			res := big.NewFloat(0).Abs(arg.Value)
+			return &Num{Value: res}, nil
+		},
 	},
 }
 
 var until = &Fn{
 	Argc: 1,
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		arg := vals[0].(*Num)
-		max64, _ := arg.Value.Int64()
-		max := int(max64)
-		res := &Arr{Values: make([]*Num, max)}
-		for i := 0; i < max; i++ {
-			res.Values[i] = &Num{Value: big.NewFloat(float64(i))}
-		}
-		return res, nil
+	Impl: fntable{
+		sig(TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arg := vals[0].(*Num)
+			max64, _ := arg.Value.Int64()
+			max := int(max64)
+			res := &Arr{Values: make([]*Num, max)}
+			for i := 0; i < max; i++ {
+				res.Values[i] = &Num{Value: big.NewFloat(float64(i))}
+			}
+			return res, nil
+		},
 	},
 }
 
 var len_ = &Fn{
 	Argc: 1,
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		arg := vals[0].(*Arr)
-		return &Num{Value: big.NewFloat(float64(len(arg.Values)))}, nil
+	Impl: fntable{
+		sig(TArr): func(env *Environment, vals ...Value) (Value, error) {
+			arg := vals[0].(*Arr)
+			return &Num{Value: big.NewFloat(float64(len(arg.Values)))}, nil
+		},
 	},
 }

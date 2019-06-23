@@ -69,10 +69,29 @@ func (*Op) Stringify() string {
 }
 
 type Fn struct {
-	Argc  int
-	Apply func(env *Environment, vals ...Value) (Value, error)
+	Argc int
+	Impl fntable
 }
 
 func (fn *Fn) Stringify() string {
 	return fmt.Sprintf("fn/%d", fn.Argc)
+}
+
+func (fn *Fn) Dispatch(env *Environment, vals ...Value) (Value, error) {
+	if len(vals) != fn.Argc {
+		return nil, fmt.Errorf("expecting %d arguments but got %d",
+			fn.Argc, len(vals))
+	}
+
+	var tys []ty
+	for _, arg := range vals {
+		tys = append(tys, Ty(arg))
+	}
+
+	handler, ok := fn.Impl[sig(tys...)]
+	if !ok {
+		return nil, fmt.Errorf("function does not implement %s", sig(tys...))
+	}
+
+	return handler(env, vals...)
 }
