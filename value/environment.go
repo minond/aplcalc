@@ -49,9 +49,11 @@ func NewEnvironment() *Environment {
 	return &Environment{
 		val: make(map[string]Value),
 		ops: map[string]*Op{
+			"!=": set,
 			"*":  mul,
 			"+":  add,
 			"..": range_,
+			"@":  access,
 
 			// Placeholders for special operators
 			":=": &Op{},

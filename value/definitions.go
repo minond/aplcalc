@@ -1,6 +1,7 @@
 package value
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -74,6 +75,70 @@ var range_ = &Op{
 			res := &Arr{Values: make([]*Num, max-min)}
 			for i := 0; i < max-min; i++ {
 				res.Values[i] = &Num{Value: big.NewFloat(float64(min + i))}
+			}
+			return res, nil
+		},
+	},
+}
+
+var access = &Op{
+	Impl: map[ty]handler{
+		TArr: func(env *Environment, vals ...Value) (Value, error) {
+			orig := vals[0].(*Arr)
+			idxs := vals[1].(*Arr)
+			res := &Arr{Values: make([]*Num, len(idxs.Values))}
+			size := len(orig.Values)
+			for i, nidx := range idxs.Values {
+				f64, _ := nidx.Value.Float64()
+				idx := int(f64)
+				if idx >= size {
+					return nil, errors.New("index out of bounds")
+				}
+				res.Values[i] = orig.Values[idx]
+			}
+			return res, nil
+		},
+		TNum | TArr: func(env *Environment, vals ...Value) (Value, error) {
+			var arr *Arr
+			var num *Num
+
+			switch vals[0].(type) {
+			case *Arr:
+				arr = vals[0].(*Arr)
+				num = vals[1].(*Num)
+			default:
+				arr = vals[1].(*Arr)
+				num = vals[0].(*Num)
+			}
+
+			f64, _ := num.Value.Float64()
+			idx := int(f64)
+			if idx >= len(arr.Values) {
+				return nil, errors.New("index out of bounds")
+			}
+			return arr.Values[idx], nil
+		},
+	},
+}
+
+var set = &Op{
+	Impl: map[ty]handler{
+		TNum | TArr: func(env *Environment, vals ...Value) (Value, error) {
+			var arr *Arr
+			var num *Num
+
+			switch vals[0].(type) {
+			case *Arr:
+				arr = vals[0].(*Arr)
+				num = vals[1].(*Num)
+			default:
+				arr = vals[1].(*Arr)
+				num = vals[0].(*Num)
+			}
+
+			res := &Arr{Values: make([]*Num, len(arr.Values))}
+			for i := range arr.Values {
+				res.Values[i] = &Num{Value: num.Value}
 			}
 			return res, nil
 		},
