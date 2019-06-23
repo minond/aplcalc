@@ -18,6 +18,7 @@ const (
 	TUnknown ty = 1 << iota
 	TArr
 	TNum
+	TGen
 )
 
 func (ty ty) String() string {
@@ -26,6 +27,8 @@ func (ty ty) String() string {
 		return "<array>"
 	case TNum:
 		return "<number>"
+	case TGen:
+		return "<generator>"
 	default:
 		return "<unknown>"
 	}
@@ -37,6 +40,8 @@ func Ty(v Value) ty {
 		return TArr
 	case *Num:
 		return TNum
+	case *Gen:
+		return TGen
 	default:
 		return TUnknown
 	}

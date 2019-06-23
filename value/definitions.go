@@ -177,6 +177,55 @@ var until = &Fn{
 	},
 }
 
+var g_until = &Fn{
+	Argc: 1,
+	Impl: fntable{
+		sig(TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arg := vals[0].(*Num)
+			max64, _ := arg.Value.Int64()
+			max := int(max64)
+			res := &Gen{
+				ty:   TNum,
+				done: false,
+				curr: &Num{Value: big.NewFloat(0)},
+				step: func(curr Value, size int) (Value, bool, bool) {
+					num, _ := curr.(*Num)
+					curr64, _ := num.Value.Int64()
+					if int(curr64)+size > max {
+						return nil, true, false
+					}
+					stepped := big.NewFloat(float64(int(curr64) + size))
+					return &Num{Value: stepped}, false, true
+				},
+			}
+			return res, nil
+		},
+	},
+}
+
+var g_take = &Op{
+	Impl: fntable{
+		sig(TGen, TNum): func(env *Environment, vals ...Value) (Value, error) {
+			gen := vals[0].(*Gen)
+			num := vals[1].(*Num)
+
+			max64, _ := num.Value.Int64()
+			max := int(max64)
+
+			res := &Arr{Values: make([]*Num, max)}
+			for i := 0; i < max; i++ {
+				val, ok := gen.Next()
+				if !ok {
+					return nil, fmt.Errorf("error on step %d", i)
+				}
+				res.Values[i] = val.(*Num)
+			}
+
+			return res, nil
+		},
+	},
+}
+
 var len_ = &Fn{
 	Argc: 1,
 	Impl: fntable{

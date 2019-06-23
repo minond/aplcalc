@@ -22,6 +22,32 @@ func (n *Num) Stringify() string {
 	return n.Value.Text('g', -1)
 }
 
+type Gen struct {
+	ty   ty
+	done bool
+	curr Value
+	step func(Value, int) (Value, bool, bool)
+}
+
+func (g *Gen) Stringify() string {
+	return fmt.Sprintf("generator%s", g.ty)
+}
+
+func (g *Gen) Next() (Value, bool) {
+	if g.done {
+		return g.curr, false
+	}
+	orig := g.curr
+	curr, done, ok := g.step(g.curr, 1)
+	if !ok {
+		return nil, false
+	}
+
+	g.curr = curr
+	g.done = done
+	return orig, true
+}
+
 type Arr struct {
 	Values []*Num
 }
