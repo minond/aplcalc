@@ -3,6 +3,7 @@ package value
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -26,8 +27,19 @@ type Arr struct {
 
 func (a *Arr) Stringify() string {
 	var vals []string
+	var max float64
 	for _, val := range a.Values {
-		vals = append(vals, val.Stringify())
+		v, _ := val.Value.Float64()
+		if v > max {
+			max = v
+		}
+	}
+	formatter := fmt.Sprintf("%% %ds", len(strconv.Itoa(int(max))))
+	for i, val := range a.Values {
+		vals = append(vals, fmt.Sprintf(formatter, val.Stringify()))
+		if (i+1)%10 == 0 {
+			vals = append(vals, "\n ")
+		}
 	}
 	return strings.Join(vals, " ")
 }
