@@ -2,6 +2,13 @@ package value
 
 import "math/big"
 
+// define is a placeholder for evaluator.define
+var define = &Op{
+	Apply: func(env *Environment, vals ...Value) (Value, error) {
+		return nil, nil
+	},
+}
+
 var add = &Op{
 	Apply: func(env *Environment, vals ...Value) (Value, error) {
 		lhs := vals[0].(*Num)

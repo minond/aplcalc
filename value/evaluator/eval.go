@@ -8,6 +8,43 @@ import (
 	"github.com/minond/calc/value"
 )
 
+// func fold(env *value.Environment, call *parser.App) (value.Value, error) {
+// 	if len(call.Args) != 2 {
+// 		return nil, fmt.Errorf("expecting 2 arguments but got %d", len(call.Args))
+// 	}
+//
+// 	fnEx, argEx := call.Args[0], call.Args[1]
+// 	fnId, ok := fnEx.(*parser.Id)
+// 	if !ok {
+// 		return nil, errors.New("expecting an identifier")
+// 	} else if !env.HasFn(fnId.Value) {
+// 		return nil, fmt.Errorf("`%s` is not a function", fnId.Value)
+// 	}
+//
+// 	fn := env.GetFn(fnId.Value)
+// 	arg, err := Eval(env, argEx)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	return fn.Apply(env, arg)
+// }
+
+func define(env *value.Environment, def *parser.Op) (value.Value, error) {
+	name, ok := def.Lhs.(*parser.Id)
+	if !ok {
+		return nil, errors.New("invalid identifier")
+	}
+
+	value, err := Eval(env, def.Rhs)
+	if err != nil {
+		return nil, err
+	}
+
+	env.SetVal(name.Value, value)
+	return value, nil
+}
+
 func Eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 	switch e := expr.(type) {
 	case *parser.Num:
@@ -37,20 +74,8 @@ func Eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 		return fn.Apply(env, args...)
 
 	case *parser.Op:
-		if e.Op == "=" {
-			var key string
-			switch id := e.Lhs.(type) {
-			case *parser.Id:
-				key = id.Value
-			default:
-				return nil, errors.New("invalid identifier")
-			}
-			val, err := Eval(env, e.Rhs)
-			if err != nil {
-				return nil, err
-			}
-			env.SetVal(key, val)
-			return val, nil
+		if e.Op == ":=" {
+			return define(env, e)
 		}
 
 		if !env.HasOp(e.Op) {
