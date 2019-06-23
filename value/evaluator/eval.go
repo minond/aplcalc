@@ -103,7 +103,7 @@ func Eval(env *value.Environment, expr parser.Expr) (value.Value, error) {
 			return nil, err
 		}
 
-		return op.Apply(env, lhs, rhs)
+		return op.Dispatch(env, lhs, rhs)
 	}
 
 	return nil, errors.New("bad expression")

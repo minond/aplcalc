@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+type handler func(*Environment, ...Value) (Value, error)
+
 type Value interface {
 	Stringify() string
 }
@@ -31,7 +33,22 @@ func (a *Arr) Stringify() string {
 }
 
 type Op struct {
-	Apply func(env *Environment, vals ...Value) (Value, error)
+	Impl map[ty]handler
+}
+
+func (op *Op) Dispatch(env *Environment, vals ...Value) (Value, error) {
+	if len(vals) != 2 {
+		return nil, fmt.Errorf("expecting 2 arguments but got %d", len(vals))
+	}
+
+	a1, a2 := vals[0], vals[1]
+	t1, t2 := Ty(a1), Ty(a2)
+	handler, ok := op.Impl[t1|t2]
+	if !ok {
+		return nil, fmt.Errorf("operator does not implement %s|%s", t1, t2)
+	}
+
+	return handler(env, a1, a2)
 }
 
 func (*Op) Stringify() string {

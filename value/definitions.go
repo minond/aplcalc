@@ -1,37 +1,73 @@
 package value
 
-import "math/big"
-
-// define is a placeholder for evaluator.define
-var define = &Op{
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		return nil, nil
-	},
-}
+import (
+	"fmt"
+	"math/big"
+)
 
 var add = &Op{
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		lhs := vals[0].(*Num)
-		rhs := vals[1].(*Num)
-		res := big.NewFloat(0).Add(lhs.Value, rhs.Value)
-		return &Num{Value: res}, nil
+	Impl: map[ty]handler{
+		TNum: func(env *Environment, vals ...Value) (Value, error) {
+			lhs := vals[0].(*Num)
+			rhs := vals[1].(*Num)
+			res := big.NewFloat(0).Add(lhs.Value, rhs.Value)
+			return &Num{Value: res}, nil
+		},
+		TArr: func(env *Environment, vals ...Value) (Value, error) {
+			lhs := vals[0].(*Arr)
+			rhs := vals[1].(*Arr)
+			if len(lhs.Values) != len(rhs.Values) {
+				return nil, fmt.Errorf("array sizes do not match, left has %d items but right has %d",
+					len(lhs.Values), len(rhs.Values))
+			}
+			res := &Arr{Values: make([]*Num, len(lhs.Values))}
+			for i := range lhs.Values {
+				res.Values[i] = &Num{
+					Value: big.NewFloat(0).Add(lhs.Values[i].Value, rhs.Values[i].Value),
+				}
+			}
+			return res, nil
+		},
+		TArr | TNum: func(env *Environment, vals ...Value) (Value, error) {
+			var arr *Arr
+			var num *Num
+
+			switch vals[0].(type) {
+			case *Arr:
+				arr = vals[0].(*Arr)
+				num = vals[1].(*Num)
+			default:
+				arr = vals[1].(*Arr)
+				num = vals[0].(*Num)
+			}
+
+			res := &Arr{Values: make([]*Num, len(arr.Values))}
+			for i := range arr.Values {
+				res.Values[i] = &Num{
+					Value: big.NewFloat(0).Add(arr.Values[i].Value, num.Value),
+				}
+			}
+			return res, nil
+		},
 	},
 }
 
 var mul = &Op{
-	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		lhs := vals[0].(*Num)
-		rhs := vals[1].(*Num)
-		res := big.NewFloat(0).Mul(lhs.Value, rhs.Value)
-		return &Num{Value: res}, nil
+	Impl: map[ty]handler{
+		TNum: func(env *Environment, vals ...Value) (Value, error) {
+			lhs := vals[0].(*Num)
+			rhs := vals[1].(*Num)
+			res := big.NewFloat(0).Mul(lhs.Value, rhs.Value)
+			return &Num{Value: res}, nil
+		},
 	},
 }
 
 var neg = &Fn{
 	Argc: 1,
 	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		sub := vals[0].(*Num)
-		res := big.NewFloat(0).Neg(sub.Value)
+		arg := vals[0].(*Num)
+		res := big.NewFloat(0).Neg(arg.Value)
 		return &Num{Value: res}, nil
 	},
 }
@@ -39,8 +75,22 @@ var neg = &Fn{
 var abs = &Fn{
 	Argc: 1,
 	Apply: func(env *Environment, vals ...Value) (Value, error) {
-		sub := vals[0].(*Num)
-		res := big.NewFloat(0).Abs(sub.Value)
+		arg := vals[0].(*Num)
+		res := big.NewFloat(0).Abs(arg.Value)
 		return &Num{Value: res}, nil
+	},
+}
+
+var until = &Fn{
+	Argc: 1,
+	Apply: func(env *Environment, vals ...Value) (Value, error) {
+		arg := vals[0].(*Num)
+		max64, _ := arg.Value.Int64()
+		max := int(max64)
+		res := &Arr{Values: make([]*Num, max)}
+		for i := 0; i < max; i++ {
+			res.Values[i] = &Num{Value: big.NewFloat(float64(i))}
+		}
+		return res, nil
 	},
 }
