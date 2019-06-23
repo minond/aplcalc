@@ -6,15 +6,9 @@ import (
 	"math/big"
 )
 
-var add = &Op{
-	Impl: map[ty]handler{
-		TNum: func(env *Environment, vals ...Value) (Value, error) {
-			lhs := vals[0].(*Num)
-			rhs := vals[1].(*Num)
-			res := big.NewFloat(0).Add(lhs.Value, rhs.Value)
-			return &Num{Value: res}, nil
-		},
-		TArr: func(env *Environment, vals ...Value) (Value, error) {
+func numbinop(operation func(*Num, *Num) *Num) fntable {
+	return map[signature]handler{
+		sig(TArr, TArr): func(env *Environment, vals ...Value) (Value, error) {
 			lhs := vals[0].(*Arr)
 			rhs := vals[1].(*Arr)
 			if len(lhs.Values) != len(rhs.Values) {
@@ -23,50 +17,51 @@ var add = &Op{
 			}
 			res := &Arr{Values: make([]*Num, len(lhs.Values))}
 			for i := range lhs.Values {
-				res.Values[i] = &Num{
-					Value: big.NewFloat(0).Add(lhs.Values[i].Value, rhs.Values[i].Value),
-				}
+				res.Values[i] = operation(lhs.Values[i], rhs.Values[i])
 			}
 			return res, nil
 		},
-		TArr | TNum: func(env *Environment, vals ...Value) (Value, error) {
-			var arr *Arr
-			var num *Num
-
-			switch vals[0].(type) {
-			case *Arr:
-				arr = vals[0].(*Arr)
-				num = vals[1].(*Num)
-			default:
-				arr = vals[1].(*Arr)
-				num = vals[0].(*Num)
-			}
-
+		sig(TArr, TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arr := vals[0].(*Arr)
+			num := vals[1].(*Num)
 			res := &Arr{Values: make([]*Num, len(arr.Values))}
 			for i := range arr.Values {
-				res.Values[i] = &Num{
-					Value: big.NewFloat(0).Add(arr.Values[i].Value, num.Value),
-				}
+				res.Values[i] = operation(arr.Values[i], num)
 			}
 			return res, nil
 		},
-	},
+		sig(TNum, TArr): func(env *Environment, vals ...Value) (Value, error) {
+			num := vals[0].(*Num)
+			arr := vals[1].(*Arr)
+			res := &Arr{Values: make([]*Num, len(arr.Values))}
+			for i := range arr.Values {
+				res.Values[i] = operation(num, arr.Values[i])
+			}
+			return res, nil
+		},
+		sig(TNum, TNum): func(env *Environment, vals ...Value) (Value, error) {
+			lhs := vals[0].(*Num)
+			rhs := vals[1].(*Num)
+			return operation(lhs, rhs), nil
+		},
+	}
+}
+
+var add = &Op{
+	Impl: numbinop(func(lhs *Num, rhs *Num) *Num {
+		return &Num{Value: big.NewFloat(0).Add(lhs.Value, rhs.Value)}
+	}),
 }
 
 var mul = &Op{
-	Impl: map[ty]handler{
-		TNum: func(env *Environment, vals ...Value) (Value, error) {
-			lhs := vals[0].(*Num)
-			rhs := vals[1].(*Num)
-			res := big.NewFloat(0).Mul(lhs.Value, rhs.Value)
-			return &Num{Value: res}, nil
-		},
-	},
+	Impl: numbinop(func(lhs *Num, rhs *Num) *Num {
+		return &Num{Value: big.NewFloat(0).Mul(lhs.Value, rhs.Value)}
+	}),
 }
 
 var range_ = &Op{
-	Impl: map[ty]handler{
-		TNum: func(env *Environment, vals ...Value) (Value, error) {
+	Impl: map[signature]handler{
+		sig(TNum, TNum): func(env *Environment, vals ...Value) (Value, error) {
 			a1, a2 := vals[0].(*Num), vals[1].(*Num)
 			min64, _ := a1.Value.Int64()
 			min := int(min64)
@@ -82,8 +77,8 @@ var range_ = &Op{
 }
 
 var access = &Op{
-	Impl: map[ty]handler{
-		TArr: func(env *Environment, vals ...Value) (Value, error) {
+	Impl: map[signature]handler{
+		sig(TArr, TArr): func(env *Environment, vals ...Value) (Value, error) {
 			orig := vals[0].(*Arr)
 			idxs := vals[1].(*Arr)
 			res := &Arr{Values: make([]*Num, len(idxs.Values))}
@@ -98,19 +93,19 @@ var access = &Op{
 			}
 			return res, nil
 		},
-		TNum | TArr: func(env *Environment, vals ...Value) (Value, error) {
-			var arr *Arr
-			var num *Num
-
-			switch vals[0].(type) {
-			case *Arr:
-				arr = vals[0].(*Arr)
-				num = vals[1].(*Num)
-			default:
-				arr = vals[1].(*Arr)
-				num = vals[0].(*Num)
+		sig(TArr, TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arr := vals[0].(*Arr)
+			num := vals[1].(*Num)
+			f64, _ := num.Value.Float64()
+			idx := int(f64)
+			if idx >= len(arr.Values) {
+				return nil, errors.New("index out of bounds")
 			}
-
+			return arr.Values[idx], nil
+		},
+		sig(TNum, TArr): func(env *Environment, vals ...Value) (Value, error) {
+			arr := vals[1].(*Arr)
+			num := vals[0].(*Num)
 			f64, _ := num.Value.Float64()
 			idx := int(f64)
 			if idx >= len(arr.Values) {
@@ -122,20 +117,19 @@ var access = &Op{
 }
 
 var set = &Op{
-	Impl: map[ty]handler{
-		TNum | TArr: func(env *Environment, vals ...Value) (Value, error) {
-			var arr *Arr
-			var num *Num
-
-			switch vals[0].(type) {
-			case *Arr:
-				arr = vals[0].(*Arr)
-				num = vals[1].(*Num)
-			default:
-				arr = vals[1].(*Arr)
-				num = vals[0].(*Num)
+	Impl: map[signature]handler{
+		sig(TArr, TNum): func(env *Environment, vals ...Value) (Value, error) {
+			arr := vals[0].(*Arr)
+			num := vals[1].(*Num)
+			res := &Arr{Values: make([]*Num, len(arr.Values))}
+			for i := range arr.Values {
+				res.Values[i] = &Num{Value: num.Value}
 			}
-
+			return res, nil
+		},
+		sig(TNum, TArr): func(env *Environment, vals ...Value) (Value, error) {
+			num := vals[0].(*Num)
+			arr := vals[1].(*Arr)
 			res := &Arr{Values: make([]*Num, len(arr.Values))}
 			for i := range arr.Values {
 				res.Values[i] = &Num{Value: num.Value}

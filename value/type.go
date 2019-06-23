@@ -1,5 +1,17 @@
 package value
 
+import "strings"
+
+type signature string
+
+func sig(tys ...ty) signature {
+	args := make([]string, len(tys))
+	for i := range tys {
+		args[i] = tys[i].String()
+	}
+	return signature(strings.Join(args, "/"))
+}
+
 type ty uint8
 
 const (

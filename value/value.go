@@ -8,6 +8,7 @@ import (
 )
 
 type handler func(*Environment, ...Value) (Value, error)
+type fntable map[signature]handler
 
 type Value interface {
 	Stringify() string
@@ -45,7 +46,7 @@ func (a *Arr) Stringify() string {
 }
 
 type Op struct {
-	Impl map[ty]handler
+	Impl fntable
 }
 
 func (op *Op) Dispatch(env *Environment, vals ...Value) (Value, error) {
@@ -55,9 +56,9 @@ func (op *Op) Dispatch(env *Environment, vals ...Value) (Value, error) {
 
 	a1, a2 := vals[0], vals[1]
 	t1, t2 := Ty(a1), Ty(a2)
-	handler, ok := op.Impl[t1|t2]
+	handler, ok := op.Impl[sig(t1, t2)]
 	if !ok {
-		return nil, fmt.Errorf("operator does not implement %s|%s", t1, t2)
+		return nil, fmt.Errorf("operator does not implement %s", sig(t1, t2))
 	}
 
 	return handler(env, a1, a2)
