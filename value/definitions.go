@@ -39,6 +39,16 @@ func numbinop(operation func(*Num, *Num) *Num) fntable {
 			}
 			return res, nil
 		},
+		sig(TNum, TGen): func(env *Environment, vals ...Value) (Value, error) {
+			lhs := vals[0].(*Num)
+			gen := vals[1].(*Gen)
+			res := gen.With(func(val Value, step int) (Value, bool, bool) {
+				// XXX Assumes numbers, fix this
+				rhs := val.(*Num)
+				return operation(lhs, rhs), false, true
+			})
+			return res, nil
+		},
 		sig(TNum, TNum): func(env *Environment, vals ...Value) (Value, error) {
 			lhs := vals[0].(*Num)
 			rhs := vals[1].(*Num)
@@ -188,7 +198,7 @@ var g_until = &Fn{
 				ty:   TNum,
 				done: false,
 				curr: &Num{Value: big.NewFloat(0)},
-				step: func(curr Value, size int) (Value, bool, bool) {
+				next: func(curr Value, size int) (Value, bool, bool) {
 					num, _ := curr.(*Num)
 					curr64, _ := num.Value.Int64()
 					if int(curr64)+size > max {
@@ -218,6 +228,7 @@ var g_take = &Op{
 				if !ok {
 					return nil, fmt.Errorf("error on step %d", i)
 				}
+				// XXX Assumes numbers, fix this
 				res.Values[i] = val.(*Num)
 			}
 

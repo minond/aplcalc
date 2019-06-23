@@ -22,30 +22,69 @@ func (n *Num) Stringify() string {
 	return n.Value.Text('g', -1)
 }
 
+type stepper func(Value, int) (next Value, done bool, ok bool)
+
 type Gen struct {
-	ty   ty
-	done bool
-	curr Value
-	step func(Value, int) (Value, bool, bool)
+	ty    ty
+	done  bool
+	curr  Value
+	next  stepper
+	steps []stepper
 }
 
 func (g *Gen) Stringify() string {
 	return fmt.Sprintf("generator%s", g.ty)
 }
 
-func (g *Gen) Next() (Value, bool) {
-	if g.done {
-		return g.curr, false
+func (g *Gen) With(step stepper) *Gen {
+	return &Gen{
+		ty:    g.ty,
+		done:  g.done,
+		curr:  g.curr,
+		next:  g.next,
+		steps: append(g.steps, step),
 	}
-	orig := g.curr
-	curr, done, ok := g.step(g.curr, 1)
+}
+
+func (g *Gen) Next() (Value, bool) {
+	res := g.curr
+	if g.done {
+		return res, false
+	}
+
+	curr, done, ok := g.next(g.curr, 1)
 	if !ok {
 		return nil, false
 	}
 
 	g.curr = curr
 	g.done = done
-	return orig, true
+	if g.done {
+		return res, false
+	}
+
+	for _, step := range g.steps {
+		if g.done {
+			break
+		}
+
+		val, done, ok := step(res, 1)
+		if !ok {
+			return nil, false
+		}
+
+		res = val
+		if done {
+			return res, false
+		}
+
+		g.done = done
+	}
+
+	if g.done {
+		return res, false
+	}
+	return res, true
 }
 
 type Arr struct {
