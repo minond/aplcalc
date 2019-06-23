@@ -1,6 +1,9 @@
 package value
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type signature string
 
@@ -9,7 +12,8 @@ func sig(tys ...ty) signature {
 	for i := range tys {
 		args[i] = tys[i].String()
 	}
-	return signature(strings.Join(args, "/"))
+	s := fmt.Sprintf("%d/%s", len(tys), strings.Join(args, "/"))
+	return signature(s)
 }
 
 type ty uint8
