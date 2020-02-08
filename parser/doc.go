@@ -29,7 +29,7 @@
 //     num = ?? valid number characters ??
 //
 //
-// Both `app` and `op` are contect-sensitive. With the use of a reference to
+// Both `app` and `op` are context-sensitive. With the use of a reference to
 // the local environemnt, the parser can tell if it should continue parsing a
 // function application with a specific number of arguments or an infix
 // operator.

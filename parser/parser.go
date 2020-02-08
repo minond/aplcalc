@@ -200,7 +200,7 @@ func (i Id) Stringify(indent int) string {
 	return fmt.Sprintf("(id %s)", i.Value)
 }
 
-type parser struct {
+type Parser struct {
 	env *value.Environment
 
 	mux    sync.Mutex
@@ -208,11 +208,11 @@ type parser struct {
 	pos    int
 }
 
-func NewParser(env *value.Environment) *parser {
-	return &parser{env: env}
+func NewParser(env *value.Environment) *Parser {
+	return &Parser{env: env}
 }
 
-func (p *parser) Parse(input string) (Expr, error) {
+func (p *Parser) Parse(input string) (Expr, error) {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 	p.tokens = tokenize(input)
@@ -220,35 +220,35 @@ func (p *parser) Parse(input string) (Expr, error) {
 	return p.expr()
 }
 
-func (p *parser) isOp(op string) bool {
+func (p *Parser) isOp(op string) bool {
 	return p.env.HasOp(op)
 }
 
-func (p *parser) isFn(fn string) (int, bool) {
+func (p *Parser) isFn(fn string) (int, bool) {
 	if p.env.HasFn(fn) {
 		return p.env.GetFn(fn).Argc, true
 	}
 	return 0, false
 }
 
-func (p *parser) lookahead(n int) token {
+func (p *Parser) lookahead(n int) token {
 	if p.pos+n < len(p.tokens) {
 		return p.tokens[p.pos+n]
 	}
 	return tokenEOF
 }
 
-func (p *parser) peek() token {
+func (p *Parser) peek() token {
 	return p.lookahead(0)
 }
 
-func (p *parser) eat() token {
+func (p *Parser) eat() token {
 	t := p.peek()
 	p.pos++
 	return t
 }
 
-func (p *parser) done() bool {
+func (p *Parser) done() bool {
 	return p.pos >= len(p.tokens)
 }
 
@@ -256,7 +256,7 @@ func (p *parser) done() bool {
 //      | op
 //      | unit
 //      ;
-func (p *parser) expr() (Expr, error) {
+func (p *Parser) expr() (Expr, error) {
 	if p.done() {
 		return nil, errors.New("unexpected eof")
 	}
@@ -298,7 +298,7 @@ func (p *parser) expr() (Expr, error) {
 //      | arr
 //      | id
 //      ;
-func (p *parser) unit() (Expr, error) {
+func (p *Parser) unit() (Expr, error) {
 	next := p.peek()
 	if next.eqv(tokenCloseParen) {
 		return nil, nil
@@ -314,7 +314,7 @@ func (p *parser) unit() (Expr, error) {
 
 // group = "(" expr ")"
 //       ;
-func (p *parser) group() (Expr, error) {
+func (p *Parser) group() (Expr, error) {
 	next := p.eat()
 	if !next.eqv(tokenOpenParen) {
 		return nil, fmt.Errorf("expecting an open paren but got %s instead", next)
@@ -333,12 +333,12 @@ func (p *parser) group() (Expr, error) {
 	return &Group{Sub: sub}, nil
 }
 
-func (p *parser) id() (Expr, error) {
+func (p *Parser) id() (Expr, error) {
 	id := p.eat()
 	return &Id{id.lexeme}, nil
 }
 
-func (p *parser) arr() (Expr, error) {
+func (p *Parser) arr() (Expr, error) {
 	arr := &Arr{}
 	for p.peek().is(tokNum) {
 		val, err := p.num()
@@ -350,7 +350,7 @@ func (p *parser) arr() (Expr, error) {
 	return arr, nil
 }
 
-func (p *parser) num() (*Num, error) {
+func (p *Parser) num() (*Num, error) {
 	next := p.eat()
 	if !next.is(tokNum) {
 		return nil, fmt.Errorf("expecting a number but got %s instead", next)
